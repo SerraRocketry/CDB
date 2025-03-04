@@ -20,18 +20,18 @@ int sat;
 #include "addons/RTDBHelper.h"
 
 // Parâmetros para conexão WiFi
-#define WIFI_SSID "SHAZAM"
-#define WIFI_PASSWORD "izq9iqwe"
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
 
 // Firebase API Key, chave de um projeto no Firebase
-#define API_KEY "AIzaSyAMhlAuFEOR3Xh-1De-wEs8U17rNNOqR5c"
+#define API_KEY ""
 
 // Credenciais de conexão Firebase
 #define USER_EMAIL "admin@admin.com"
 #define USER_PASSWORD "admin1"
 
 // URL do projeto Firebase
-#define DATABASE_URL "https://gps-1-1885c-default-rtdb.europe-west1.firebasedatabase.app"
+#define DATABASE_URL ""
 
 // Define os objetos no Firebase
 FirebaseData fbdo;

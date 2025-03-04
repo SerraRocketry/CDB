@@ -22,6 +22,8 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - Buzzer
 - LED
 - Step down
+- Baterias 18650
+- BMS
 
 ## Configuração de Pinos
 
@@ -65,6 +67,11 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - **bmpData()**: Obtém dados do sensor BMP280.
 - **getDataString()**: Concatena os dados do GPS e BMP280 em uma string.
 
+## Códigos de apoios
+
+Os códigos contidos em `/Apoio`, são apoios ao desenvolvimento. Sendo esses códigos funcionais e testados.
+
 ## Próximos passos
 
-- Implementar o código contido em 'Firebase.ino' usando o GSMClient para um database do Firebase.
+- Implementar o código contido em `Firebase.ino` usando o GSMClient para um database do Firebase.
+- Realizar testes gerais.
