@@ -7,6 +7,7 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include <LoRa.h>
+#include <TinyGsmClient.h>
 
 // Definições de pinos e constantes
 #define PRESSAO_NIVEL_MAR 1013.25
@@ -21,7 +22,7 @@
 #define TX_GPS 17
 
 #define RX_SIM800 26
-#define TX_SIM800 27 
+#define TX_SIM800 27
 
 #define LORA_FREQ 868E6
 
@@ -30,6 +31,8 @@ Adafruit_BMP280 bmp;
 Servo escotilha;
 HardwareSerial neogps(1);
 HardwareSerial sim800(2);
+TinyGsm modemGSM(sim800);
+TinyGsmClient gsmClient(sim800);
 TinyGPSPlus gps;
 
 // Variáveis globais
@@ -45,6 +48,11 @@ const float ALTITUDE_DROP_THRESHOLD = 10.0;
 const float MINIMUM_DESCENT_RATE = 2.0;
 
 bool parachuteDeployed = false;
+
+// Configurações do GPRS (Operadora)
+const char apn[] = ""; 
+const char user[] = "";
+const char pass[] = "";
 
 void setup()
 {
@@ -65,8 +73,7 @@ void setup()
 
   neogps.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS);
 
-  sim800.begin(9600, SERIAL_8N1, RX_SIM800, TX_SIM800);
-  sim800_ready = checkSIM800();
+  sim800_ready = setupSIM800();
 
   writeFile(filedir, "");
 
@@ -124,6 +131,44 @@ bool setupLoRa()
     Serial.println("Falha ao inicializar o LoRa!");
     return false;
   }
+  return true;
+}
+
+bool setupSIM800()
+{
+  sim800.begin(9600, SERIAL_8N1, RX_SIM800, TX_SIM800);
+
+  // Mostra informação sobre o modem
+  Serial.println(modemGSM.getModemInfo());
+
+  // Inicializa o modem
+  if (!modemGSM.restart())
+  {
+    Serial.println("Falha ao reiniciar o modem.");
+    return false;
+  }
+
+  // Espera pela rede
+  if (!modemGSM.waitForNetwork())
+  {
+    Serial.println("Falha ao conectar à rede.");
+    return false;
+  }
+
+  // Conecta à rede gprs (APN, usuário, senha)
+  if (!modemGSM.gprsConnect(apn, user, pass))
+  {
+    Serial.println("Falha ao conectar ao GPRS.");
+    return false;
+  }
+
+  if (!checkSIM800())
+  {
+    Serial.println("SIM800 não conectado.");
+    return false;
+  }
+
+  Serial.println("SIM800 pronto.");
   return true;
 }
 
