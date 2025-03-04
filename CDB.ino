@@ -40,7 +40,7 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisSMS = 0;
 float previousAltitude = 0, maxAltitude = 0;
 const int MAXPOS = 180, MINPOS = 0;
-const String TEL = "+5521993271241";
+const String TEL = "+552199999999";
 String filedir = "/Dados.txt";
 bool sim800_ready = false;
 
