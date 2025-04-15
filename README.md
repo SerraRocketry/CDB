@@ -1,4 +1,4 @@
-# CDB - Computador de Bordo
+# Aviônica - Computador de Bordo
 
 Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de foguetemodelismo Serra Rocketry. O CDB utiliza sensores e módulos para monitorar a altitude, localização GPS, e controlar a abertura do paraquedas para garantir um voo seguro.
 
@@ -20,18 +20,18 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - Buzzer
 - LED
 - Step down
-- Baterias 18650
-- BMS
+- Baterias Li-Po
 
 ## Configuração de Pinos
 
-- **BUZZER_PIN**: 0
-- **SERVO_PIN**: 16
+- **BUZZER_PIN**: 15
+- **SERVO_PIN**: 13
 - **LED_PIN**: 2
 - **RX_GPS**: 16
 - **TX_GPS**: 17
-- **RX_SIM800**: 26
-- **TX_SIM800**: 27
+- **SS**: 5
+- **RST**: 14
+- **DIO0**: 4
 
 ## Bibliotecas Utilizadas
 
@@ -43,7 +43,6 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - FS
 - SPIFFS
 - LoRa
-- TinyGsmClient
 
 ## Estrutura do Código
 
@@ -52,7 +51,6 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - **setupSPIFFS()**: Inicializa o sistema de arquivos SPIFFS.
 - **setupBMP()**: Configura o sensor BMP280.
 - **setupLoRa()**: Inicializa o módulo LoRa.
-- **setupSIM800()**: Configura o módulo SIM800.
 - **buzzSignal()**: Controla o buzzer e o LED para sinalização.
 - **logData()**: Armazena os dados lidos em um arquivo.
 - **handleParachute()**: Controla a abertura do paraquedas com base na altitude.
@@ -60,15 +58,10 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - **writeFile()**: Escreve dados no arquivo SPIFFS.
 - **printBoth()**: Imprime mensagens no serial e envia via LoRa.
 - **sendLoRa()**: Envia mensagens via LoRa.
-- **sendSMS()**: Envia mensagens SMS.
 - **gpsData()**: Obtém dados do GPS.
 - **bmpData()**: Obtém dados do sensor BMP280.
 - **getDataString()**: Concatena os dados do GPS e BMP280 em uma string.
 
 ## Códigos de apoios
 
-Os códigos contidos em `/Apoio`, são apoios ao desenvolvimento. Sendo esses códigos funcionais e testados.
-
-## Próximos passos
-
-- Realizar testes gerais.
+Os códigos contidos em `/Extras`, são apoios ao desenvolvimento. Sendo esses códigos funcionais e testados.
