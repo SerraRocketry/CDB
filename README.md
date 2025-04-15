@@ -7,7 +7,6 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - Leitura de altitude utilizando o sensor BMP280.
 - Monitoramento de localização GPS com o módulo GPS NEO-6m.
 - Comunicação via LoRa para transmissão de dados com a base operacional.
-- Envio de SMS utilizando o módulo SIM800L.
 - Controle de um servo motor para abertura do paraquedas.
 - Armazenamento de dados em SPIFFS.
 
@@ -17,7 +16,6 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - Sensor de pressão BMP280
 - Módulo GPS
 - Módulo LoRa
-- Módulo SIM800
 - Servo motor
 - Buzzer
 - LED
@@ -73,5 +71,4 @@ Os códigos contidos em `/Apoio`, são apoios ao desenvolvimento. Sendo esses c�
 
 ## Próximos passos
 
-- Implementar o código contido em `Firebase.ino` usando o GSMClient para um database do Firebase.
 - Realizar testes gerais.

@@ -1,0 +1,19 @@
+Label;Part Type;mn;mpn;part number;
+A1;GY-NEO6MV2;;;;
+A2;GY-BMP280 Breakout;;;;
+J1;Piezo Speaker;;;;
+J2;Basic Servo;;;;
+M1;DOIT Esp32 DevKit v1 (30 pins long, 11 pins width);;;ESP32S-PIN30;
+M3;RioRand LM2596;;;;
+RFM95W1;RFM95W LoRa Module;;;;
+U1;LIPO-2000mAh;;;;
+
+Amount;Part Type;mn;mpn;part number;
+1;Basic Servo;;;;
+1;DOIT Esp32 DevKit v1 (30 pins long, 11 pins width);;;ESP32S-PIN30;
+1;GY-BMP280 Breakout;;;;
+1;GY-NEO6MV2;;;;
+1;LIPO-2000mAh;;;;
+1;Piezo Speaker;;;;
+1;RFM95W LoRa Module;;;;
+1;RioRand LM2596;;;;
