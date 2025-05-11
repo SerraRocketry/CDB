@@ -9,6 +9,7 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - Comunicação via LoRa para transmissão de dados com a base operacional.
 - Controle de um servo motor para abertura do paraquedas.
 - Armazenamento de dados em SPIFFS.
+- Monitoramento de aceleração e giroscópio utilizando o sensor MPU6050.
 
 ## Hardware Utilizado
 
@@ -21,6 +22,7 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - LED
 - Step down
 - Baterias Li-Po
+- Sensor MPU6050
 
 ## Configuração de Pinos
 
@@ -29,9 +31,9 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - **LED_PIN**: 2
 - **RX_GPS**: 16
 - **TX_GPS**: 17
-- **SS**: 5
-- **RST**: 14
-- **DIO0**: 4
+- **SS_LORA**: 5
+- **RST_LORA**: 14
+- **DIO0_LORA**: 4
 
 ## Bibliotecas Utilizadas
 
@@ -43,6 +45,8 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - FS
 - SPIFFS
 - LoRa
+- Adafruit_MPU6050
+- Adafruit_Sensor
 
 ## Estrutura do Código
 
@@ -51,17 +55,21 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 - **setupSPIFFS()**: Inicializa o sistema de arquivos SPIFFS.
 - **setupBMP()**: Configura o sensor BMP280.
 - **setupLoRa()**: Inicializa o módulo LoRa.
+- **setupMPU()**: Configura o sensor MPU6050.
+- **setupServo()**: Configura o servo motor.
 - **buzzSignal()**: Controla o buzzer e o LED para sinalização.
 - **logData()**: Armazena os dados lidos em um arquivo.
 - **handleParachute()**: Controla a abertura do paraquedas com base na altitude.
 - **checkHighest()**: Verifica a maior altitude alcançada.
 - **writeFile()**: Escreve dados no arquivo SPIFFS.
+- **appendFile()**: Anexa dados ao arquivo SPIFFS.
 - **printBoth()**: Imprime mensagens no serial e envia via LoRa.
 - **sendLoRa()**: Envia mensagens via LoRa.
-- **gpsData()**: Obtém dados do GPS.
-- **bmpData()**: Obtém dados do sensor BMP280.
-- **getDataString()**: Concatena os dados do GPS e BMP280 em uma string.
+- **GPSData()**: Obtém dados do GPS (latitude, longitude, satélites, altitude, data e hora).
+- **BMPData()**: Obtém dados do sensor BMP280 (altitude e pressão).
+- **MPUData()**: Obtém dados do sensor MPU6050 (aceleração e giroscópio).
+- **getDataString()**: Concatena os dados do GPS, BMP280 e MPU6050 em uma string.
 
-## Códigos de apoios
+## Códigos de Apoio
 
-Os códigos contidos em `/Extras`, são apoios ao desenvolvimento. Sendo esses códigos funcionais e testados.
+Os códigos contidos em `/Extras` são apoios ao desenvolvimento. Esses códigos são funcionais e testados.

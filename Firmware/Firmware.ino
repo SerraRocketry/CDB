@@ -7,42 +7,44 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include <LoRa.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 
 // Definições de pinos e constantes
-#define PRESSAO_NIVEL_MAR 1013.25
+#define INTERVAL 100
 
-#define INTERVALO_LEITURAS 100
+#define BMP_ADDR 0x76 // Endereço I2C padrão do BMP280
 
-#define LORA_FREQ 868E6
+#define LORA_FREQ 868E6 // Frequência de operação
+#define SS_LORA 5
+#define RST_LORA 14
+#define DIO0_LORA 4
+#define SYNC_WORD 0xF3 // Código de sincronização
 
-#define SS 5
-#define RST 14
-#define DIO0 4
+#define BUZZER_PIN 15 // Pino do buzzer
+#define SERVO_PIN 13  // Pino do servo motor
+#define LED_PIN 2     // Pino do LED
 
-#define BUZZER_PIN 15
-#define SERVO_PIN 13
-#define LED_PIN 2
-
-#define RX_GPS 16
-#define TX_GPS 17
+#define RX_GPS 16 // RX do GPS
+#define TX_GPS 17 // TX do GPS
 
 // Instanciação de objetos
-Adafruit_BMP280 bmp;
-Servo escotilha;
-HardwareSerial neogps(2);
-TinyGPSPlus gps;
+Adafruit_BMP280 BMP;      // Objeto do BMP280
+Servo ParachuteServo;     // Objeto do servo
+HardwareSerial NeoGPS(2); // Objeto do serial GPS
+TinyGPSPlus GPS;          // Objeto do GPS
+Adafruit_MPU6050 MPU;     // Objeto do MPU6050
 
 // Variáveis globais
-unsigned long previousMillis = 0;
-float previousAltitude = 0, maxAltitude = 0;
-baseAltitude = 0;
-const int MAXPOS = 180, MINPOS = 0;
-String filedir = "/Dados.txt";
-
-const float ALTITUDE_DROP_THRESHOLD = 10.0;
-const float ALTITUDE_THRESHOLD = 100.0;
-
-bool parachuteDeployed = false;
+unsigned long previous_millis = 0;
+float previous_altitude = 0, max_altitude = 0, base_altitude = 0; // Altitudes variáveis e estáticas
+float base_pressure = 0;                                          // Pressão na base
+String file_name = "Dados.txt";                                   // Nome do arquivo para salvar os dados
+bool parachute_deployed = false;                                  // Verificação da liberação do paraquedas
+const int MAXPOS = 180, MINPOS = 0;                               // Posição máxima e mínima do servo
+const float ALTITUDE_DROP_THRESHOLD = 10.0;                       // Ao menos 10m abaixo do referencial máximo (ajustar se necessário)
+const float ALTITUDE_THRESHOLD = 100.0;                           // Altura mínima para liberar o paraquedas (ajustar se necessário)
+sensors_event_t acc, gyr, temp;                                   // Variáveis para armazenar os dados do MPU6050
 
 void setup()
 {
@@ -51,7 +53,8 @@ void setup()
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
 
-  if (!(setupSPIFFS() && setupBMP() && setupLoRa()))
+  String file_dir = "/" + String(millis()) + "-" + file_name;                                 // Diretório do arquivo de dados
+  if (!(setupSPIFFS() && setupBMP() && setupLoRa() && setupMPU() && writeFile(file_dir, ""))) // Inicia a memória interna e os módulos BMP, LoRa e MPU6050
   {
     Serial.println("Erro na configuração!");
     buzzSignal("Alerta");
@@ -59,28 +62,27 @@ void setup()
     ESP.restart();
   }
 
-  setupServo();
+  setupServo(); // Inicia o servo motor
 
-  neogps.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS);
-
-  writeFile(filedir, "");
+  NeoGPS.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS); // Inicia o GPS
 
   buzzSignal("Sucesso");
 }
 
 void loop()
 {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= INTERVALO_LEITURAS) // A cada 100ms
+  unsigned long current_millis = millis();
+  if (current_millis - previous_millis >= INTERVAL) // A cada 100ms
   {
-    logData(currentMillis);
-    float altitude = bmp.readAltitude(PRESSAO_NIVEL_MAR);
+    logData(current_millis);
+    float altitude = BMP.readAltitude(base_pressure);
     checkHighest(altitude);
-    handleParachute(altitude, currentMillis);
-    previousMillis = currentMillis;
+    handleParachute(altitude, current_millis);
+    previous_millis = current_millis;
   }
 }
 
+// Setup da memória SPIFFS
 bool setupSPIFFS()
 {
   if (!SPIFFS.begin(true))
@@ -88,40 +90,56 @@ bool setupSPIFFS()
     Serial.println("Erro ao montar SPIFFS.");
     return false;
   }
-  return true;
+  return true; // Retorna true se tudo ocorreu bem
 }
 
+// Setup do módulo BMP280
 bool setupBMP()
 {
-  if (!bmp.begin(0x76))
+  if (!BMP.begin(BMP_ADDR))
   {
     Serial.println("Falha no BMP280.");
     return false;
   }
-  previousAltitude = bmp.readAltitude(PRESSAO_NIVEL_MAR);
-  maxAltitude = previousAltitude;
-  baseAltitude = previousAltitude;
-  return true;
+  base_pressure = BMP.readPressure();
+  previous_altitude = BMP.readAltitude(base_pressure);
+  max_altitude = previous_altitude;
+  base_altitude = previous_altitude;
+  return true; // Retorna true se tudo ocorreu bem
 }
 
+// Setup do módulo LoRa
 bool setupLoRa()
 {
-  LoRa.setPins(SS, RST, DIO0);
+  LoRa.setPins(SS_LORA, RST_LORA, DIO0_LORA);
   if (!LoRa.begin(LORA_FREQ))
   {
     Serial.println("Falha ao inicializar o LoRa!");
     return false;
   }
-  LoRa.setSyncWord(0xF3);
-  return true;
+  LoRa.setSyncWord(SYNC_WORD);
+  return true; // Retorna true se tudo ocorreu bem
 }
 
+// Setup do MPU6050
+bool setupMPU()
+{
+  if (!MPU.begin())
+  {
+    Serial.println("Falha no MPU6050.");
+    return false;
+  }
+  return true; // Retorna true se tudo ocorreu bem
+}
+
+// Setup do servo motor
 void setupServo()
 {
-  escotilha.attach(SERVO_PIN);
-  escotilha.write(MINPOS);
+  ParachuteServo.attach(SERVO_PIN);
+  ParachuteServo.write(MINPOS);
 }
 
+// Sinalização com o buzzer
 void buzzSignal(String signal)
 {
   if (signal == "Alerta")
@@ -148,73 +166,109 @@ void buzzSignal(String signal)
       delay(100);
     }
   }
-}
-
-void logData(unsigned long currentMillis)
-{
-  String dataString = String(currentMillis) + ";" + getDataString();
-  writeFile(filedir, dataString);
-  printBoth(dataString);
-}
-
-void handleParachute(float altitude, unsigned long currentMillis)
-{
-  if (!parachuteDeployed)
+  else if (signal == "Ativado")
   {
-    if (altitude <= maxAltitude - ALTITUDE_DROP_THRESHOLD && altitude < ALTITUDE_THRESHOLD)
-    {
-      digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, HIGH);
+  }
+}
 
-      escotilha.write(MAXPOS);
+// Registra e imprime os dados do momento
+// Formato da string: tempo;lat-long-satélites-altitude-data-hora;altitude-pressão;acelX-acelY-acelZ-giroX-giroY-giroZ
+void logData(unsigned long current_millis)
+{
+  String data_string = String(current_millis) + ";" + getDataString(); // String com os dados atuais
+  printBoth(data_string);
+  appendFile(file_dir, data_string);
+}
+
+// Verifica se a altura atual é a máxima já atingida
+void checkHighest(float altitude)
+{
+  if (altitude > max_altitude)
+  {
+    max_altitude = altitude;
+  }
+}
+
+// Lida com a abertura do paraquedas
+void handleParachute(float altitude, unsigned long current_millis)
+{
+  if (!parachute_deployed)
+  {
+    if (altitude <= max_altitude - ALTITUDE_DROP_THRESHOLD && altitude < ALTITUDE_THRESHOLD)
+    {
+      buzzSignal("Ativado");
+      ParachuteServo.write(MAXPOS);
       unsigned long startTime = millis();
       while (millis() - startTime < 500)
       {
-        if (escotilha.read() == MAXPOS)
+        if (ParachuteServo.read() == MAXPOS)
         {
           break;
         }
       }
-      if (escotilha.read() != MAXPOS)
+      if (ParachuteServo.read() != MAXPOS)
       {
-        printBoth("ERRO: Servo não abriu a escotilha!");
+        printBoth("ERRO: Servo não abriu!");
       }
-
-      printBoth("Paraquedas acionado. Altitude: " + String(altitude) + ", Velocidade de queda: " + String(rateOfDescent) + " m/s");
-
-      parachuteDeployed = true;
+      printBoth("Paraquedas acionado. Altitude: " + String(altitude));
+      parachute_deployed = true;
     }
   }
-  previousAltitude = altitude;
+  previous_altitude = altitude;
 }
 
-void checkHighest(float altitude)
+// Escreve os dados no arquivo - escrita
+bool writeFile(const String &path, const String &data_string)
 {
-  if (altitude > maxAltitude)
+  File file = SPIFFS.open(path, FILE_APPEND);
+  if (!file) // Se houver falha ao abrir o arquivo
   {
-    maxAltitude = altitude;
+    Serial.println("Falha ao abrir arquivo para gravação.");
+    return false;
   }
+  if (file.println(data_string)) // Se a escrita no arquivo for bem-sucedida
+  {
+    Serial.println("Arquivo escrito.");
+  }
+  else // Se houver falha na escrita
+  {
+    Serial.println("Falha na gravação do arquivo.");
+    file.close();
+    return false;
+  }
+  file.close();
+  return true; // Retorna true se tudo ocorreu bem
 }
 
-void writeFile(const String &path, const String &dataString)
+// Escreve os dados no arquivo - anexação
+void appendFile(const String &path, const String &message)
 {
-  File dataFile = SPIFFS.open(path, FILE_APPEND);
-  if (dataFile)
+  File file = SPIFFS.open(path, FILE_APPEND);
+  if (!file) // Se houver falha ao abrir o arquivo
   {
-    dataFile.println(dataString);
-    dataFile.close();
+    Serial.println("Falha ao abrir arquivo para anexar.");
   }
-  else
+  if (file.print(message)) // Se a escrita no arquivo for bem-sucedida
   {
-    printBoth("Erro ao abrir o arquivo.");
+    Serial.println("Mensagem anexada.");
   }
+  else // Se houver falha na escrita
+  {
+    Serial.println("Falha ao anexar mensagem.");
+    file.close();
+  }
+  file.close();
 }
 
+// Imprime a mensagem no Serial e no LoRa
 void printBoth(const String &message)
 {
   Serial.println(message);
   sendLoRa(message);
 }
 
+// Processa o envio de mensagens LoRa
 void sendLoRa(const String &message)
 {
   LoRa.beginPacket();
@@ -229,45 +283,67 @@ void sendLoRa(const String &message)
   }
 }
 
-String gpsData()
+// Retorna os dados de latitude-longitude-satélites-altitude-data-hora
+String GPSData()
 {
-  String locationData = "N/A;N/A;N/A;N/A;N/A";
-  if (gps.location.isValid())
+  String location_data = "N/A-N/A-N/A-N/A-N/A"; // String da localização lat-long-satélites-altitude
+  if (GPS.location.isValid())
   {
-    locationData = String(gps.location.lat(), 6) + ";" +
-                   String(gps.location.lng(), 6) + ";" +
-                   String(gps.satellites.value()) + ";" +
-                   String(gps.speed.kmph()) + ";" +
-                   String(gps.altitude.meters());
+    location_data = String(GPS.location.lat(), 6) + "-" +
+                    String(GPS.location.lng(), 6) + "-" +
+                    String(GPS.satellites.value()) + "-" +
+                    String(GPS.altitude.meters());
   }
 
-  String dateData = ";N/A";
-  if (gps.date.isValid())
+  String date_data = "-N/A"; // String da data
+  if (GPS.date.isValid())
   {
-    dateData = ";" + String(gps.date.year()) + "/" +
-               String(gps.date.month()) + "/" +
-               String(gps.date.day());
+    date_data = "-" + String(GPS.date.year()) + "/" +
+                String(GPS.date.month()) + "/" +
+                String(GPS.date.day());
   }
 
-  String timeData = ";N/A";
-  if (gps.time.isValid())
+  String time_data = "-N/A"; // String do horário
+  if (GPS.time.isValid())
   {
-    timeData = ";" + String(gps.time.hour()) + ":" +
-               String(gps.time.minute()) + ":" +
-               String(gps.time.second());
+    time_data = "-" + String(GPS.time.hour()) + ":" +
+                String(GPS.time.minute()) + ":" +
+                String(GPS.time.second());
   }
 
-  return locationData + dateData + timeData;
+  return location_data + date_data + time_data;
 }
 
-String bmpData()
+// Retorna os dados de altitude-pressão
+String BMPData()
 {
-  return String(bmp.readAltitude(PRESSAO_NIVEL_MAR)) + ";" +
-         String(bmp.readPressure() / 100.0F) + ";" +
-         String(bmp.readTemperature());
+  return String(BMP.readAltitude(base_pressure)) + "-" +
+         String(BMP.readPressure() / 100.0F);
 }
 
+// Retorna os dados de acelerômetro-giroscópio
+String MPUData()
+{
+  MPU.getEvent(&acc, &gyr, &temp); // Lê os dados do MPU6050
+
+  float ax = acc.acceleration.x; // Aceleração em x
+  float ay = acc.acceleration.y; // Aceleração em y
+  float az = acc.acceleration.z; // Aceleração em z
+
+  float gx = gyr.gyro.x; // Giroscópio em x
+  float gy = gyr.gyro.y; // Giroscópio em y
+  float gz = gyr.gyro.z; // Giroscópio em z
+
+  return String(ax) + "-" +
+         String(ay) + "-" +
+         String(az) + "-" +
+         String(gx) + "-" +
+         String(gy) + "-" +
+         String(gz);
+}
+
+// Retorna a string com os dados do GPS, BMP280 e MPU6050
 String getDataString()
 {
-  return gpsData() + ";" + bmpData();
+  return GPSData() + ";" + BMPData() + ";" + MPUData();
 }
