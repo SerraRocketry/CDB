@@ -37,16 +37,16 @@ Este projeto é o computador de bordo (CDB) para o foguete SR1500 da equipe de f
 
 ## Bibliotecas Utilizadas
 
-- Wire
-- SPI
-- Adafruit_BMP280
-- ESP32Servo
-- TinyGPS++
-- FS
-- SPIFFS
-- LoRa
-- Adafruit_MPU6050
-- Adafruit_Sensor
+- **Wire**
+- **SPI**
+- **Adafruit_BMP280**
+- **ESP32Servo**
+- **TinyGPS++**
+- **FS**
+- **SPIFFS**
+- **LoRa**
+- **dafruit_MPU6050**
+- **Adafruit_Sensor**
 
 ## Estrutura do Código
 

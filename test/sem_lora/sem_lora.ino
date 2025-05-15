@@ -6,7 +6,6 @@
 #include <TinyGPS++.h>
 #include "FS.h"
 #include "SPIFFS.h"
-#include <LoRa.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 
@@ -14,12 +13,6 @@
 #define INTERVAL 200
 
 #define BMP_ADDR 0x76 // Endereço I2C padrão do BMP280
-
-#define LORA_FREQ 868E6 // Frequência de operação
-#define SS_LORA 5
-#define RST_LORA 14
-#define DIO0_LORA 4
-#define SYNC_WORD 0xF3 // Código de sincronização
 
 #define SERVO_PIN 13 // Pino do servo motor
 #define BUZZER_PIN 0 // Pino do buzzer
@@ -68,19 +61,6 @@ bool setupBMP()
   previous_altitude = BMP.readAltitude(base_pressure);
   max_altitude = previous_altitude;
   base_altitude = previous_altitude;
-  return true; // Retorna true se tudo ocorreu bem
-}
-
-// Setup do módulo LoRa
-bool setupLoRa()
-{
-  LoRa.setPins(SS_LORA, RST_LORA, DIO0_LORA);
-  if (!LoRa.begin(LORA_FREQ))
-  {
-    Serial.println("Falha ao inicializar o LoRa!");
-    return false;
-  }
-  LoRa.setSyncWord(SYNC_WORD);
   return true; // Retorna true se tudo ocorreu bem
 }
 
@@ -229,26 +209,10 @@ void appendFile(const String &path, const String &message)
   file.close();
 }
 
-// Imprime a mensagem no Serial e no LoRa
+// Imprime a mensagem no Serial
 void printBoth(const String &message)
 {
   Serial.println(message);
-  sendLoRa(message);
-}
-
-// Processa o envio de mensagens LoRa
-void sendLoRa(const String &message)
-{
-  LoRa.beginPacket();
-  LoRa.print(message);
-  if (LoRa.endPacket())
-  {
-    Serial.println("Mensagem LoRa enviada.");
-  }
-  else
-  {
-    Serial.println("ERRO ao enviar mensagem LoRa!");
-  }
 }
 
 // Retorna os dados de latitude-longitude-satélites-altitude-data-hora

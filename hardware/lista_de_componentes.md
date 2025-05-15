@@ -4,7 +4,7 @@
 - GY-BMP280.
 - Piezo Speaker.
 - Basic Servo.
-- DOIT Esp32 DevKit v1.
+- ESP32 C3 Super Mini.
 - Step down LM2596.
 - RFM95W LoRa Module.
 - LIPO-2000mAh.
