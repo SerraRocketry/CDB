@@ -5,7 +5,7 @@
 #include <ESP32Servo.h>
 #include <TinyGPS++.h>
 #include "FS.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 #include <LoRa.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
@@ -16,9 +16,9 @@
 #define BMP_ADDR 0x76 // Endereço I2C padrão do BMP280
 
 #define LORA_FREQ 868E6 // Frequência de operação
-#define SS_LORA 5
-#define RST_LORA 14
-#define DIO0_LORA 4
+#define SS_LORA 7
+#define RST_LORA 1
+#define DIO0_LORA 2
 #define SYNC_WORD 0xF3 // Código de sincronização
 
 #define SERVO_PIN 13 // Pino do servo motor
@@ -37,7 +37,7 @@ Adafruit_MPU6050 MPU; // Objeto do MPU6050
 unsigned long previous_millis = 0;
 float previous_altitude = 0, max_altitude = 0, base_altitude = 0; // Altitudes variáveis e estáticas
 float base_pressure = 0;                                          // Pressão na base
-String file_name = "Dados.txt";                                   // Nome do arquivo para salvar os dados
+String file_name = "Dados.csv";                                   // Nome do arquivo para salvar os dados
 String file_dir = "";
 bool parachute_deployed = false;            // Verificação da liberação do paraquedas
 const int MAXPOS = 180, MINPOS = 0;         // Posição máxima e mínima do servo
@@ -45,15 +45,15 @@ const float ALTITUDE_DROP_THRESHOLD = 10.0; // Ao menos 10m abaixo do referencia
 const float ALTITUDE_THRESHOLD = 100.0;     // Altura mínima para liberar o paraquedas (ajustar se necessário)
 sensors_event_t acc, gyr, temp;             // Variáveis para armazenar os dados do MPU6050
 
-// Setup da memória SPIFFS
-bool setupSPIFFS()
+// Setup da memória LittleFS
+bool setupLittleFS()
 {
-  if (!SPIFFS.begin(true))
-  {
-    Serial.println("Erro ao montar SPIFFS.");
-    return false;
-  }
-  return true; // Retorna true se tudo ocorreu bem
+    if (!LittleFS.begin(true))
+    {
+        Serial.println("Erro ao montar LittleFS.");
+        return false;
+    }
+    return true; // Retorna true se tudo ocorreu bem
 }
 
 // Setup do módulo BMP280
@@ -141,10 +141,10 @@ void buzzSignal(String signal)
 }
 
 // Registra e imprime os dados do momento
-// Formato da string: tempo;lat-long-satélites-altitude-data-hora;altitude-pressão;acelX-acelY-acelZ-giroX-giroY-giroZ
+// Forma: millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz
 void logData(unsigned long current_millis)
 {
-  String data_string = String(current_millis) + ";" + getDataString(); // String com os dados atuais
+  String data_string = String(current_millis) + "," + getDataString(); // String com os dados atuais
   printBoth(data_string);
   appendFile(file_dir, data_string);
 }
@@ -189,44 +189,44 @@ void handleParachute(float altitude)
 // Escreve os dados no arquivo - escrita
 bool writeFile(const String &path, const String &data_string)
 {
-  File file = SPIFFS.open(path, FILE_APPEND);
-  if (!file) // Se houver falha ao abrir o arquivo
-  {
-    Serial.println("Falha ao abrir arquivo para gravação.");
-    return false;
-  }
-  if (file.println(data_string)) // Se a escrita no arquivo for bem-sucedida
-  {
-    Serial.println("Arquivo escrito.");
-  }
-  else // Se houver falha na escrita
-  {
-    Serial.println("Falha na gravação do arquivo.");
+    File file = LittleFS.open(path, FILE_WRITE);
+    if (!file) // Se houver falha ao abrir o arquivo
+    {
+        Serial.println("Falha ao abrir arquivo para gravação.");
+        return false;
+    }
+    if (file.println(data_string)) // Se a escrita no arquivo for bem-sucedida
+    {
+        Serial.println("Arquivo escrito.");
+    }
+    else // Se houver falha na escrita
+    {
+        Serial.println("Falha na gravação do arquivo.");
+        file.close();
+        return false;
+    }
     file.close();
-    return false;
-  }
-  file.close();
-  return true; // Retorna true se tudo ocorreu bem
+    return true; // Retorna true se tudo ocorreu bem
 }
 
 // Escreve os dados no arquivo - anexação
 void appendFile(const String &path, const String &message)
 {
-  File file = SPIFFS.open(path, FILE_APPEND);
-  if (!file) // Se houver falha ao abrir o arquivo
-  {
-    Serial.println("Falha ao abrir arquivo para anexar.");
-  }
-  if (file.print(message + "\n")) // Se a escrita no arquivo for bem-sucedida
-  {
-    Serial.println("Mensagem anexada.");
-  }
-  else // Se houver falha na escrita
-  {
-    Serial.println("Falha ao anexar mensagem.");
+    File file = LittleFS.open(path, FILE_APPEND);
+    if (!file) // Se houver falha ao abrir o arquivo
+    {
+        Serial.println("Falha ao abrir arquivo para anexar.");
+    }
+    if (file.print(message + "\n")) // Se a escrita no arquivo for bem-sucedida
+    {
+        Serial.println("Mensagem anexada.");
+    }
+    else // Se houver falha na escrita
+    {
+        Serial.println("Falha ao anexar mensagem.");
+        file.close();
+    }
     file.close();
-  }
-  file.close();
 }
 
 // Imprime a mensagem no Serial e no LoRa
@@ -251,34 +251,34 @@ void sendLoRa(const String &message)
   }
 }
 
-// Retorna os dados de latitude-longitude-satélites-altitude-data-hora
+// Retorna os dados de latitude,longitude,satélites,altitude,data,hora
 String GPSData()
 {
   while (Serial1.available() > 0)
   {
     GPS.encode(Serial1.read());
   }
-  String location_data = "N/A-N/A-N/A-N/A-N/A"; // String da localização lat-long-satélites-altitude
+  String location_data = "N/A,N/A,N/A,N/A,N/A"; // String da localização lat-long-satélites-altitude
   if (GPS.location.isValid())
   {
-    location_data = String(GPS.location.lat(), 6) + "-" +
-                    String(GPS.location.lng(), 6) + "-" +
-                    String(GPS.satellites.value()) + "-" +
+    location_data = String(GPS.location.lat(), 6) + "," +
+                    String(GPS.location.lng(), 6) + "," +
+                    String(GPS.satellites.value()) + "," +
                     String(GPS.altitude.meters());
   }
 
-  String date_data = "-N/A"; // String da data
+  String date_data = ",N/A"; // String da data
   if (GPS.date.isValid())
   {
-    date_data = "-" + String(GPS.date.year()) + "/" +
+    date_data = "," + String(GPS.date.year()) + "/" +
                 String(GPS.date.month()) + "/" +
                 String(GPS.date.day());
   }
 
-  String time_data = "-N/A"; // String do horário
+  String time_data = ",N/A"; // String do horário
   if (GPS.time.isValid())
   {
-    time_data = "-" + String(GPS.time.hour()) + ":" +
+    time_data = "," + String(GPS.time.hour()) + ":" +
                 String(GPS.time.minute()) + ":" +
                 String(GPS.time.second());
   }
@@ -286,14 +286,14 @@ String GPSData()
   return location_data + date_data + time_data;
 }
 
-// Retorna os dados de altitude-pressão
+// Retorna os dados de altitude,pressão
 String BMPData()
 {
-  return String(BMP.readAltitude(base_pressure)) + "-" +
+  return String(BMP.readAltitude(base_pressure)) + "," +
          String(BMP.readPressure() / 100.0F);
 }
 
-// Retorna os dados de acelerômetro-giroscópio
+// Retorna os dados de acelerômetro,giroscópio
 String MPUData()
 {
   MPU.getEvent(&acc, &gyr, &temp); // Lê os dados do MPU6050
@@ -306,18 +306,18 @@ String MPUData()
   float gy = gyr.gyro.y; // Giroscópio em y
   float gz = gyr.gyro.z; // Giroscópio em z
 
-  return String(ax) + "-" +
-         String(ay) + "-" +
-         String(az) + "-" +
-         String(gx) + "-" +
-         String(gy) + "-" +
+  return String(ax) + "," +
+         String(ay) + "," +
+         String(az) + "," +
+         String(gx) + "," +
+         String(gy) + "," +
          String(gz);
 }
 
 // Retorna a string com os dados do GPS, BMP280 e MPU6050
 String getDataString()
 {
-  return GPSData() + ";" + BMPData() + ";" + MPUData();
+  return GPSData() + "," + BMPData() + "," + MPUData();
 }
 
 void setup()
@@ -329,6 +329,7 @@ void setup()
   if (!Serial1)
   {
     Serial.println("Falha ao iniciar o GPS.");
+    delay(3000);
     ESP.restart();
   }
   delay(1000); // Aguarda o GPS inicializar
@@ -355,9 +356,18 @@ void setup()
   file_dir = "/" + time_data + "-" + file_name; // Diretório do arquivo de dados
   Serial.print("Salvando dados em: ");
   Serial.println(file_dir);
-  if (!(setupSPIFFS() && setupBMP() && setupMPU() && writeFile(file_dir, ""))) // Inicia a memória interna e os módulos BMP e MPU6050
+  String data_header = "millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz"; // Cabeçalho do arquivo
+  if (!(setupLittleFS() && writeFile(file_dir, data_header)))                  // Inicia a memória interna
   {
-    Serial.println("Erro na configuração!");
+    Serial.println("Erro no sistema de arquivos!");
+    buzzSignal("Alerta");
+    delay(3000);
+    ESP.restart();
+  }
+
+  if (!(setupBMP() && setupMPU() && setupLoRa())) // Inicia os módulos BMP, MPU6050 e LoRa
+  {
+    Serial.println("Erro na configuração dos módulos!");
     buzzSignal("Alerta");
     delay(3000);
     ESP.restart();
