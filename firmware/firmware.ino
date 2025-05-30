@@ -38,22 +38,22 @@ unsigned long previous_millis = 0;
 float previous_altitude = 0, max_altitude = 0, base_altitude = 0; // Altitudes variáveis e estáticas
 float base_pressure = 0;                                          // Pressão na base
 String file_name = "Dados.csv";                                   // Nome do arquivo para salvar os dados
-String file_dir = "";
-bool parachute_deployed = false;            // Verificação da liberação do paraquedas
-const int MAXPOS = 180, MINPOS = 0;         // Posição máxima e mínima do servo
-const float ALTITUDE_DROP_THRESHOLD = 10.0; // Ao menos 10m abaixo do referencial máximo (ajustar se necessário)
-const float ALTITUDE_THRESHOLD = 100.0;     // Altura mínima para liberar o paraquedas (ajustar se necessário)
-sensors_event_t acc, gyr, temp;             // Variáveis para armazenar os dados do MPU6050
+String file_dir = "";                                             // Diretório do arquivo
+bool parachute_deployed = false;                                  // Verificação da liberação do paraquedas
+const int MAXPOS = 180, MINPOS = 0;                               // Posição máxima e mínima do servo
+const float ALTITUDE_DROP_THRESHOLD = 10.0;                       // Ao menos 10m abaixo do referencial máximo (ajustar se necessário)
+const float ALTITUDE_THRESHOLD = 100.0;                           // Altura mínima para liberar o paraquedas (ajustar se necessário)
+sensors_event_t acc, gyr, temp;                                   // Variáveis para armazenar os dados do MPU6050
 
 // Setup da memória LittleFS
 bool setupLittleFS()
 {
-    if (!LittleFS.begin(true))
-    {
-        Serial.println("Erro ao montar LittleFS.");
-        return false;
-    }
-    return true; // Retorna true se tudo ocorreu bem
+  if (!LittleFS.begin(true))
+  {
+    Serial.println("Erro ao montar LittleFS.");
+    return false;
+  }
+  return true; // Retorna true se tudo ocorreu bem
 }
 
 // Setup do módulo BMP280
@@ -77,7 +77,7 @@ bool setupLoRa()
   LoRa.setPins(SS_LORA, RST_LORA, DIO0_LORA);
   if (!LoRa.begin(LORA_FREQ))
   {
-    Serial.println("Falha ao inicializar o LoRa!");
+    Serial.println("Falha ao inicializar o LoRa.");
     return false;
   }
   LoRa.setSyncWord(SYNC_WORD);
@@ -105,34 +105,30 @@ void setupServo()
 // Sinalização com o buzzer
 void buzzSignal(String signal)
 {
-  if (signal == "Alerta")
+  int frequency = 1000; // Frequência do tom
+  if (signal == "Alerta") // Alerta de erro em alguma configuração
   {
     for (int i = 0; i < 5; i++)
     {
-      digitalWrite(BUZZER_PIN, HIGH);
-      delay(500);
-      digitalWrite(BUZZER_PIN, LOW);
-      delay(500);
+      tone(BUZZER_PIN, frequency, 200);
+      delay(200 + 150);
     }
   }
-  else if (signal == "Sucesso")
+  else if (signal == "Sucesso") // Sinal de sucesso na configuração
   {
     for (int i = 0; i < 3; i++)
     {
-      digitalWrite(BUZZER_PIN, HIGH);
-      delay(100);
-      digitalWrite(BUZZER_PIN, LOW);
-      delay(100);
+      tone(BUZZER_PIN, frequency, 100);
+      delay(100 + 100);
     }
   }
   else if (signal == "Ativado")
   {
-    digitalWrite(BUZZER_PIN, HIGH);
+    tone(BUZZER_PIN, frequency, 500);
   }
-  else if (signal == "Funcionando")
+  else if (signal == "Beep") // Beep de funcionamento padrão
   {
-    bool State = !digitalRead(BUZZER_PIN);
-    digitalWrite(BUZZER_PIN, State);
+    tone(BUZZER_PIN, frequency, 50);
   }
   else
   {
@@ -141,7 +137,7 @@ void buzzSignal(String signal)
 }
 
 // Registra e imprime os dados do momento
-// Forma: millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz
+// Forma: millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz,pqd
 void logData(unsigned long current_millis)
 {
   String data_string = String(current_millis) + "," + getDataString(); // String com os dados atuais
@@ -161,14 +157,13 @@ void checkHighest(float altitude)
 // Lida com a abertura do paraquedas
 void handleParachute(float altitude)
 {
-  if (!parachute_deployed)
+  if (!parachute_deployed) // Confere se o paraquedas já foi acionado
   {
-    if (altitude <= max_altitude - ALTITUDE_DROP_THRESHOLD && altitude < ALTITUDE_THRESHOLD)
+    if (altitude <= max_altitude - ALTITUDE_DROP_THRESHOLD && altitude < ALTITUDE_THRESHOLD) // Se a altitude cair 10m abaixo do referencial máximo e for menor que 100m
     {
-      buzzSignal("Ativado");
       ParachuteServo.write(MAXPOS);
       unsigned long startTime = millis();
-      while (millis() - startTime < 500)
+      while (millis() - startTime < 500) // Aguarda 500ms para conferir se o servo motor abriu
       {
         if (ParachuteServo.read() == MAXPOS)
         {
@@ -183,50 +178,54 @@ void handleParachute(float altitude)
       parachute_deployed = true;
     }
   }
+  else
+  {
+    buzzSignal("Ativado");
+  }
   previous_altitude = altitude;
 }
 
 // Escreve os dados no arquivo - escrita
 bool writeFile(const String &path, const String &data_string)
 {
-    File file = LittleFS.open(path, FILE_WRITE);
-    if (!file) // Se houver falha ao abrir o arquivo
-    {
-        Serial.println("Falha ao abrir arquivo para gravação.");
-        return false;
-    }
-    if (file.println(data_string)) // Se a escrita no arquivo for bem-sucedida
-    {
-        Serial.println("Arquivo escrito.");
-    }
-    else // Se houver falha na escrita
-    {
-        Serial.println("Falha na gravação do arquivo.");
-        file.close();
-        return false;
-    }
+  File file = LittleFS.open(path, FILE_WRITE);
+  if (!file) // Se houver falha ao abrir o arquivo
+  {
+    Serial.println("Falha ao abrir arquivo para gravação.");
+    return false;
+  }
+  if (file.println(data_string)) // Se a escrita no arquivo for bem-sucedida
+  {
+    Serial.println("Arquivo escrito.");
+  }
+  else // Se houver falha na escrita
+  {
+    Serial.println("Falha na gravação do arquivo.");
     file.close();
-    return true; // Retorna true se tudo ocorreu bem
+    return false;
+  }
+  file.close();
+  return true; // Retorna true se tudo ocorreu bem
 }
 
 // Escreve os dados no arquivo - anexação
 void appendFile(const String &path, const String &message)
 {
-    File file = LittleFS.open(path, FILE_APPEND);
-    if (!file) // Se houver falha ao abrir o arquivo
-    {
-        Serial.println("Falha ao abrir arquivo para anexar.");
-    }
-    if (file.print(message + "\n")) // Se a escrita no arquivo for bem-sucedida
-    {
-        Serial.println("Mensagem anexada.");
-    }
-    else // Se houver falha na escrita
-    {
-        Serial.println("Falha ao anexar mensagem.");
-        file.close();
-    }
+  File file = LittleFS.open(path, FILE_APPEND);
+  if (!file) // Se houver falha ao abrir o arquivo
+  {
+    Serial.println("Falha ao abrir arquivo para anexar.");
+  }
+  if (file.print(message + "\n")) // Se a escrita no arquivo for bem-sucedida
+  {
+    Serial.println("Mensagem anexada.");
+  }
+  else // Se houver falha na escrita
+  {
+    Serial.println("Falha ao anexar mensagem.");
     file.close();
+  }
+  file.close();
 }
 
 // Imprime a mensagem no Serial e no LoRa
@@ -317,15 +316,22 @@ String MPUData()
 // Retorna a string com os dados do GPS, BMP280 e MPU6050
 String getDataString()
 {
-  return GPSData() + "," + BMPData() + "," + MPUData();
+  return GPSData() + "," + BMPData() + "," + MPUData() + "," + String(parachute_deployed);
 }
 
 void setup()
 {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
+  for (int i = 0; i < 10; i++)
+  {
+    Serial.println("Inicializando...");
+    delay(1000);
+  }
 
-  Serial1.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS); // Inicia o GPS
+  setupServo(); // Inicia o servo motor
+
+  Serial1.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS); // Inicia o GPS (precisa ser o Serial1)
   if (!Serial1)
   {
     Serial.println("Falha ao iniciar o GPS.");
@@ -356,8 +362,8 @@ void setup()
   file_dir = "/" + time_data + "-" + file_name; // Diretório do arquivo de dados
   Serial.print("Salvando dados em: ");
   Serial.println(file_dir);
-  String data_header = "millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz"; // Cabeçalho do arquivo
-  if (!(setupLittleFS() && writeFile(file_dir, data_header)))                  // Inicia a memória interna
+  String data_header = "millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz,pqd"; // Cabeçalho do arquivo
+  if (!(setupLittleFS() && writeFile(file_dir, data_header)))                           // Inicia a memória interna
   {
     Serial.println("Erro no sistema de arquivos!");
     buzzSignal("Alerta");
@@ -373,15 +379,13 @@ void setup()
     ESP.restart();
   }
 
-  setupServo(); // Inicia o servo motor
-
   buzzSignal("Sucesso");
 }
 
 void loop()
 {
   unsigned long current_millis = millis();
-  if (current_millis - previous_millis >= INTERVAL) // A cada 100ms
+  if (current_millis - previous_millis >= INTERVAL) // A cada 200ms
   {
     logData(current_millis);
     float altitude = BMP.readAltitude(base_pressure);
