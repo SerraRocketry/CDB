@@ -52,6 +52,37 @@ void setServerRoutes() {
     serializeJson(fsFiles, jsonString);
     request->send(200, "application/json; charset=utf-8", jsonString);
   });
+
+  // Essa rota captura um arquivo específico na raiz do Sistema de Arquivos e o
+  // retorna para o cliente. Consumida pelo front-end quando os links de abrir e
+  // baixar arquivos são selecionados.
+  server.on("/api/file", HTTP_GET, [](AsyncWebServerRequest* request) {
+    // Só retormamos com sucesso se o cliente requisitou um arquivo.
+    if (!(request->hasParam("filename"))) {
+      request->send(400, "text/plain; charset=utf-8", "Parâmetro de URL \
+          <filename> faltando.");
+      return;
+    }
+
+    // Só retormamos com sucesso se arquivo requisitado existe no Sistema de
+    // Arquivos.
+    const AsyncWebParameter* param = request->getParam("filename");
+    String filename = param->value();
+    if (!LittleFS.exists("/" + filename)) {
+      request->send(404, "text/plain; charset=utf-8", "Arquivo <" + filename + 
+          "> não encontrado no Sistema de Arquivos");
+      return;
+    }
+
+    // Retornamos o arquivo para download ou visualização simples dependendo se
+    // o cliente enviou também o parâmetro de URL <download>. (Deve ter uma
+    // solução mais elegante pra isso).
+    if (request->hasParam("download")) {
+      request->send(LittleFS, "/" + filename, String(), true);
+    } else {
+      request->send(LittleFS, "/" + filename, "text/plain; charset=utf-8");
+    }
+  });
 }
 
 void setup() {

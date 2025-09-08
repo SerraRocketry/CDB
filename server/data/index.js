@@ -19,6 +19,15 @@ getFiles().then(files => {
     const $rowSize = $tableRow.querySelector(".rowTemplateSize");
     $rowSize.textContent = humanFileSize(file.size);
 
+    const $openLink = $tableRow.querySelector(".rowTemplateOpen");
+    const fileURL = new URL("/api/file", document.location);
+    fileURL.searchParams.set("filename", file.name);
+    $openLink.href = fileURL.href;
+
+    const $downloadLink = $tableRow.querySelector(".rowTemplateDownload");
+    fileURL.searchParams.set("download", 1); // Reusando URL por praticidade.
+    $downloadLink.href = fileURL.href;
+
     return $tableRow;
   });
 
