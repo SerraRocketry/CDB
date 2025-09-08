@@ -4,7 +4,6 @@
 #include <Adafruit_BMP280.h>
 #include <ESP32Servo.h>
 #include <TinyGPS++.h>
-#include "FS.h"
 #include "LittleFS.h"
 #include <LoRa.h>
 #include <Adafruit_MPU6050.h>
@@ -21,7 +20,7 @@
 #define DIO0_LORA 2
 #define SYNC_WORD 0xF3 // Código de sincronização
 
-#define SERVO_PIN 13 // Pino do servo motor
+#define SERVO_PIN 10 // Pino do servo motor
 #define BUZZER_PIN 0 // Pino do buzzer
 
 #define RX_GPS 20 // RX do GPS
@@ -34,15 +33,18 @@ TinyGPSPlus GPS;      // Objeto do GPS
 Adafruit_MPU6050 MPU; // Objeto do MPU6050
 
 // Variáveis globais
+int packet_count = 0; // Contador de pacotes
 unsigned long previous_millis = 0;
 float previous_altitude = 0, max_altitude = 0, base_altitude = 0; // Altitudes variáveis e estáticas
 float base_pressure = 0;                                          // Pressão na base
 String file_name = "Dados.csv";                                   // Nome do arquivo para salvar os dados
 String file_dir = "";                                             // Diretório do arquivo
+String state = "";                                                // Estado do sistema
 bool parachute_deployed = false;                                  // Verificação da liberação do paraquedas
 const int MAXPOS = 180, MINPOS = 0;                               // Posição máxima e mínima do servo
 const float ALTITUDE_DROP_THRESHOLD = 10.0;                       // Ao menos 10m abaixo do referencial máximo (ajustar se necessário)
 const float ALTITUDE_THRESHOLD = 100.0;                           // Altura mínima para liberar o paraquedas (ajustar se necessário)
+const String TEAM_ID = "100";                                     // ID da equipe
 sensors_event_t acc, gyr, temp;                                   // Variáveis para armazenar os dados do MPU6050
 
 // Setup da memória LittleFS
@@ -105,7 +107,7 @@ void setupServo()
 // Sinalização com o buzzer
 void buzzSignal(String signal)
 {
-  int frequency = 1000; // Frequência do tom
+  int frequency = 1000;   // Frequência do tom
   if (signal == "Alerta") // Alerta de erro em alguma configuração
   {
     for (int i = 0; i < 5; i++)
@@ -137,12 +139,14 @@ void buzzSignal(String signal)
 }
 
 // Registra e imprime os dados do momento
-// Forma: millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz,pqd
+// Formato: TEAM_ID,millis,count,hora,data,alt,lat,lon,sat,altp,temp,p,gp,gr,gy,ap,ar,ay
 void logData(unsigned long current_millis)
 {
-  String data_string = String(current_millis) + "," + getDataString(); // String com os dados atuais
+  String readings = getDataString();                                                                                 // Obtém os dados do GPS, BMP280 e MPU6050
+  String data_string = TEAM_ID + String(current_millis) + "," + String(packet_count) + "," + state + "," + readings; // String com os dados atuais
   printBoth(data_string);
   appendFile(file_dir, data_string);
+  packet_count++;
 }
 
 // Verifica se a altura atual é a máxima já atingida
@@ -248,25 +252,18 @@ void sendLoRa(const String &message)
   {
     Serial.println("ERRO ao enviar mensagem LoRa!");
   }
+  LoRa.endPacket();
 }
 
-// Retorna os dados de latitude,longitude,satélites,altitude,data,hora
+// Retorna os dados de hora, data, altitude, latitude, longitude, satélites
 String GPSData()
 {
   while (Serial1.available() > 0)
   {
     GPS.encode(Serial1.read());
   }
-  String location_data = "N/A,N/A,N/A,N/A,N/A"; // String da localização lat-long-satélites-altitude
-  if (GPS.location.isValid())
-  {
-    location_data = String(GPS.location.lat(), 6) + "," +
-                    String(GPS.location.lng(), 6) + "," +
-                    String(GPS.satellites.value()) + "," +
-                    String(GPS.altitude.meters());
-  }
 
-  String date_data = ",N/A"; // String da data
+  String date_data = "N/A"; // String da data
   if (GPS.date.isValid())
   {
     date_data = "," + String(GPS.date.year()) + "/" +
@@ -282,54 +279,64 @@ String GPSData()
                 String(GPS.time.second());
   }
 
-  return location_data + date_data + time_data;
+  String location_data = ",N/A,N/A,N/A,N/A,N/A"; // String da localização lat-long-satélites-altitude
+  if (GPS.location.isValid())
+  {
+    location_data = String(GPS.altitude.meters()) + "," +
+                    String(GPS.location.lat(), 8) + "," +
+                    String(GPS.location.lng(), 8) + "," +
+                    String(GPS.satellites.value());
+  }
+
+  return time_data + date_data + location_data;
 }
 
-// Retorna os dados de altitude,pressão
+// Retorna os dados de altitude, temperatura, pressão
 String BMPData()
 {
   return String(BMP.readAltitude(base_pressure)) + "," +
+         String(BMP.readTemperature()) + "," +
          String(BMP.readPressure() / 100.0F);
 }
 
-// Retorna os dados de acelerômetro,giroscópio
+// Retorna os dados de giroscópio, acelerômetro
 String MPUData()
 {
   MPU.getEvent(&acc, &gyr, &temp); // Lê os dados do MPU6050
 
-  float ax = acc.acceleration.x; // Aceleração em x
-  float ay = acc.acceleration.y; // Aceleração em y
-  float az = acc.acceleration.z; // Aceleração em z
+  float ap = acc.acceleration.x; // Aceleração em x - pitch
+  float ar = acc.acceleration.y; // Aceleração em y - roll
+  float ay = acc.acceleration.z; // Aceleração em z - yaw
 
-  float gx = gyr.gyro.x; // Giroscópio em x
-  float gy = gyr.gyro.y; // Giroscópio em y
-  float gz = gyr.gyro.z; // Giroscópio em z
+  float gp = gyr.gyro.x; // Giroscópio em x - pitch
+  float gr = gyr.gyro.y; // Giroscópio em y - roll
+  float gy = gyr.gyro.z; // Giroscópio em z - yaw
 
-  return String(ax) + "," +
-         String(ay) + "," +
-         String(az) + "," +
-         String(gx) + "," +
+  return String(gp) + "," +
+         String(gr) + "," +
          String(gy) + "," +
-         String(gz);
+         String(ap) + "," +
+         String(ar) + "," +
+         String(ay);
 }
 
-// Retorna a string com os dados do GPS, BMP280 e MPU6050
+// Retorna a string com os dados do BMP280, MPU6050 e GPS
 String getDataString()
 {
-  return GPSData() + "," + BMPData() + "," + MPUData() + "," + String(parachute_deployed);
+  return BMPData() + "," + MPUData() + "," + GPSData();
 }
 
 void setup()
 {
   Serial.begin(115200);
+  setupServo(); // Inicia o servo motor
+
   pinMode(BUZZER_PIN, OUTPUT);
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 5; i++)
   {
     Serial.println("Inicializando...");
     delay(1000);
   }
-
-  setupServo(); // Inicia o servo motor
 
   Serial1.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS); // Inicia o GPS (precisa ser o Serial1)
   if (!Serial1)
@@ -362,8 +369,8 @@ void setup()
   file_dir = "/" + time_data + "-" + file_name; // Diretório do arquivo de dados
   Serial.print("Salvando dados em: ");
   Serial.println(file_dir);
-  String data_header = "millis,lat,lon,sat,alt,data,hora,altp,p,ax,ay,az,gx,gy,gz,pqd"; // Cabeçalho do arquivo
-  if (!(setupLittleFS() && writeFile(file_dir, data_header)))                           // Inicia a memória interna
+  String data_header = "TEAM_ID,millis,count,hora,data,alt,lat,lon,sat,altp,temp,p,gp,gr,gy,ap,ar,ay"; // Cabeçalho do arquivo
+  if (!(setupLittleFS() && writeFile(file_dir, data_header)))                                          // Inicia a memória interna
   {
     Serial.println("Erro no sistema de arquivos!");
     buzzSignal("Alerta");

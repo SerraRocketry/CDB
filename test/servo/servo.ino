@@ -8,30 +8,31 @@ Servo ParachuteServo; // Objeto do servo
 
 void setupServo()
 {
-    ParachuteServo.attach(SERVO_PIN);
-    ParachuteServo.write(MINPOS);
+  ParachuteServo.attach(SERVO_PIN);
+  ParachuteServo.write(MINPOS);
 }
 
 void setup()
 {
-    Serial.begin(115200);
-    setupServo();
+  Serial.begin(115200);
+  setupServo();
+  ParachuteServo.write(MINPOS);
+  delay(5000);
 }
 
 void loop()
 {
-    for (int i = MINPOS; i <= MAXPOS; i++)
+  ParachuteServo.write(MAXPOS);
+  unsigned long startTime = millis();
+  while (millis() - startTime < 500) // Aguarda 500ms para conferir se o servo motor abriu
+  {
+    if (ParachuteServo.read() == MAXPOS)
     {
-        ParachuteServo.write(i);
-        Serial.println(i);
-        delay(15);
+      break;
     }
-    delay(1000);
-    for (int i = MAXPOS; i >= MINPOS; i--)
-    {
-        ParachuteServo.write(i);
-        Serial.println(i);
-        delay(15);
-    }
-    delay(1000);
+  }
+  if (ParachuteServo.read() != MAXPOS)
+  {
+  }
+  delay(1000);
 }
