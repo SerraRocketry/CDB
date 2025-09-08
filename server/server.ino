@@ -83,6 +83,37 @@ void setServerRoutes() {
       request->send(LittleFS, "/" + filename, "text/plain; charset=utf-8");
     }
   });
+
+  // Muito semelhante a rota anterior, só que agora que verbo HTTP mudou de GET
+  // para DELETE nós deletamos o arquivo no Sistema de Arquivos ao invés de
+  // retorná-lo pro cliente. Consumida pelo front-end quando o cliente seleciona
+  // o botão de deletar arquivos.
+  server.on("/api/file", HTTP_DELETE, [](AsyncWebServerRequest* request) {
+    Serial.println(request->method());
+    if (!(request->hasParam("filename"))) {
+      request->send(400, "text/plain; charset=utf-8", "Parâmetro de URL \
+          <filename> faltando.");
+      return;
+    }
+
+    const AsyncWebParameter* param = request->getParam("filename");
+    String filename = param->value();
+
+    if (!LittleFS.exists("/" + filename)) {
+      request->send(404, "text/plain; charset=utf-8", "Erro ao tentar deletar \
+          arquivo <" + filename + "> inexistente.");
+      return;
+    }
+
+    if (LittleFS.remove("/" + filename)) {
+      request->send(200, "text/plain; charset=utf-8", "Arquivo deletado com \
+          sucesso.");
+    } else {
+      // A essa altura nada deve dar de errado, mas por via das dúvidas...
+      request->send(400, "text/plain; charset=utf-8", "Erro desconhecido ao \
+          tentar deletar arquivo <" + filename + ">");
+    }
+  });
 }
 
 void setup() {
