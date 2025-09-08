@@ -10,6 +10,7 @@
     </style>
   </head>
   <body>
+    <script src="index.js" defer></script>
     <h1>Gerenciador de Arquivos (LittleFS)</h1>
     <table>
       <thead>
@@ -19,6 +20,19 @@
           <td>Ações</td>
         </tr>
       </thead>
+      <tbody id="tableBody">
+      </tbody>
+      <template id="rowTemplate">
+        <tr>
+          <td class="rowTemplateName">Nome</td>
+          <td class="rowTemplateSize">Tamanho</td>
+          <td>
+            <a class="rowTemplateOpen">Abrir</a>
+            <a class="rowTemplateDownload">Baixar</a>
+            <button class="rowTemplateDelete">Excluir</button>
+          </td>
+        </tr>
+      </template>
     </table>
   </body>
 </html>

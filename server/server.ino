@@ -1,3 +1,4 @@
+#include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <WiFi.h>
@@ -17,6 +18,39 @@ void setServerRoutes() {
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(LittleFS, "/style.css", "text/css");
+  });
+
+  server.on("/index.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(LittleFS, "/index.js", "application/javascript");
+  });
+
+  // Rotas API que permitem que o front-end tenha acesso aos dados do back-end.
+  // Não é exatamente RESTful por limitações de capacidades da lib, de recursos
+  // do ESP32 e de minha própria habilidade lol.
+
+  // Essa rota captura todos os arquivos dispostos na raiz do Sistema de
+  // Arquivos e retorna alguns de seus dados. É usado na homepage para popular a
+  // tabela.
+  server.on("/api/files", HTTP_GET, [](AsyncWebServerRequest* request) {
+    JsonDocument fsFiles; // Cria um objeto JSON.
+    File root = LittleFS.open("/"); // Abre o Sistema de Arquivos na Raiz.
+
+    // Para todos os arquivos nesse diretório:
+    File file = root.openNextFile();
+    while (file) {
+      if (!file.isDirectory()) {
+        // Adicione seu nome e tamanho no objeto JSON.
+        JsonObject fsFile = fsFiles.add<JsonObject>();
+        fsFile["name"] = String(file.name());
+        fsFile["size"] = file.size();
+      }
+      file = root.openNextFile();
+    }
+    // Por fim, transforme o objeto JSON em sua representação texto puro e o
+    // envie para o cliente.
+    char jsonString[8000] = { 0 };
+    serializeJson(fsFiles, jsonString);
+    request->send(200, "application/json; charset=utf-8", jsonString);
   });
 }
 
