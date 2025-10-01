@@ -43,7 +43,8 @@ String state = "";                                                // Estado do s
 bool parachute_deployed = false;                                  // Verificação da liberação do paraquedas
 const int MAXPOS = 180, MINPOS = 0;                               // Posição máxima e mínima do servo
 const float ALTITUDE_DROP_THRESHOLD = 10.0;                       // Ao menos 10m abaixo do referencial máximo (ajustar se necessário)
-const float ALTITUDE_THRESHOLD = 100.0;                           // Altura mínima para liberar o paraquedas (ajustar se necessário)
+const float ALTITUDE_THRESHOLD = 200.0;                           // Altura mínima para liberar o paraquedas (ajustar se necessário)
+const float VELOCITY_THRESHOLD = 5.0;                             // Velocidade de descida mínima para liberar o paraquedas (ajustar se necessário)
 const String TEAM_ID = "100";                                     // ID da equipe
 sensors_event_t acc, gyr, temp;                                   // Variáveis para armazenar os dados do MPU6050
 
@@ -159,11 +160,11 @@ void checkHighest(float altitude)
 }
 
 // Lida com a abertura do paraquedas
-void handleParachute(float altitude)
+void handleParachute(float altitude, float velocity)
 {
   if (!parachute_deployed) // Confere se o paraquedas já foi acionado
   {
-    if (altitude <= max_altitude - ALTITUDE_DROP_THRESHOLD && altitude < ALTITUDE_THRESHOLD) // Se a altitude cair 10m abaixo do referencial máximo e for menor que 100m
+    if (altitude <= max_altitude - ALTITUDE_DROP_THRESHOLD && (altitude < ALTITUDE_THRESHOLD || abs(velocity) > VELOCITY_THRESHOLD)) // Se a altitude cair 10m abaixo do referencial máximo e for menor que 100m
     {
       ParachuteServo.write(MAXPOS);
       unsigned long startTime = millis();
@@ -396,8 +397,9 @@ void loop()
   {
     logData(current_millis);
     float altitude = BMP.readAltitude(base_pressure);
+    float velocity = (altitude - previous_altitude) / ((current_millis - previous_millis) / 1000.0); 
     checkHighest(altitude);
-    handleParachute(altitude);
+    handleParachute(altitude, velocity);
     previous_millis = current_millis;
   }
 }
