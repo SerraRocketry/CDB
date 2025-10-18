@@ -13,15 +13,15 @@ AsyncWebServer server(80);
 void setServerRoutes() {
   // Rotas básicas de acesso ao site para o usuário
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(LittleFS, "/index.html", "text/html");
+    request->send(LittleFS, "/server/index.html", "text/html");
   });
 
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(LittleFS, "/style.css", "text/css");
+    request->send(LittleFS, "/server/style.css", "text/css");
   });
 
   server.on("/index.js", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(LittleFS, "/index.js", "application/javascript");
+    request->send(LittleFS, "/server/index.js", "application/javascript");
   });
 
   // Rotas API que permitem que o front-end tenha acesso aos dados do back-end.
