@@ -3,8 +3,8 @@ async function getFiles() {
   return await response.json();
 }
 
-// Faz uma requisição ao backend de todos os arquivos:
-getFiles().then(files => {
+async function buildDOM() {
+  const files = await getFiles();
   // Pega uma referência a um template HTML referente à uma linha de uma tabela.
   const $template = document.querySelector("#rowTemplate");
 
@@ -31,9 +31,9 @@ getFiles().then(files => {
       const $rowContainer = event.currentTarget;
       // No fim só nos importamos se for o botão de deletar arquivo que "estiver
       // na mira", mas isso facilita na hora de removermos a linha da tabela.
-      if(!event.target.classList.contains("rowTemplateDelete"))
+      if (!event.target.classList.contains("rowTemplateDelete"))
         return;
-      
+
       // Se for, requisitamos ao servidor que delete o arquivo correspondente
       const message = await handleDelete(fileURL);
       console.log(message);
@@ -50,7 +50,7 @@ getFiles().then(files => {
 
   // Por fim, popule a tabela com essas linhas.
   document.querySelector("#tableBody").replaceChildren(...$tableRows);
-})
+}
 
 // Roubei do StackOverflow lol.
 function humanFileSize(size) {
@@ -63,3 +63,6 @@ async function handleDelete(fileURL) {
   const response = await fetch(fileURL, { method: "DELETE", });
   return await response.text();
 }
+
+buildDOM()
+setInterval(buildDOM, 2000);
